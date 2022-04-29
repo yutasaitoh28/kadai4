@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<meta name="Description" content="Enter your description here"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.0/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link rel="stylesheet" href="assets/css/login.css">
+<title>チャット</title>
+</head>
+<body style = "background-color: #eee;">
+    <div class="form-bg">
+        <div class="container">
+            <div class="row signUp justify-content-center mt-5">
+                <div class="col-md-offset-4 col-md-4 col-sm-offset-3 col-sm-6">
+                    <div class="form-container">
+                        <h3 class="title">新規登録</h3>
+                        <form class="form-horizontal">
+                            <div class="form-group">
+                                <input type="text" class="form-control signUpName" placeholder="ユーザーネーム">
+                            </div>
+                            <div class="form-group">
+                                <input type="email" class="form-control signUpEmail" placeholder="Eメール">
+                            </div>
+                            <div class="form-group">
+                                <input type="password" class="form-control signUPPassword" placeholder="パスワード">
+                            </div>
+                            <button class="btn signup">サインアップ</button><br>
+                            <span>既にアカウントをお持ちですか？<a href="javascript:void(0)" class = "changeToSignIn"><br>ログイン</a></span>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="row signIn justify-content-center mt-5">
+                <div class="col-md-offset-4 col-md-4 col-sm-offset-3 col-sm-6">
+                    <div class="form-container">
+                        <h3 class="title">ログイン</h3>
+                        <ul class="social-links">
+                            <li><a href="javascript:void(0)"><i class="fab fa-google"></i></a></li>
+                        </ul>
+                        <span class="description">Googleアカウントでログインする</span>
+                        <form class="form-horizontal">
+                            <div class="form-group">
+                                <input type="email" class="form-control signInEmail" placeholder="Email">
+                            </div>
+                            <div class="form-group">
+                                <input type="password" class="form-control signInPassword" placeholder="Password">
+                            </div>
+                            <button class="btn signin">ログイン</button><br>
+                            <span>まだアカウントをお持ちでないですか？<a href="javascript:void(0)" class = "changeToSignUp">新規登録</a></span>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.0/js/bootstrap.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-firestore.js"></script>
+    <script src="assets/js/firebase.js"></script>
+    <script>
+        $(document).ready(function(){
+            function signUp(signUpEmail,signUPPassword,signUpName){
+                auth.createUserWithEmailAndPassword(signUpEmail,signUPPassword).
+                then(async (result) => {
+                    var user = {
+                        avatar : '',
+                        email : result.user.email,
+                        username : result.user.email.substring(0,result.user.email.lastIndexOf('@')),
+                        display_name : signUpName,
+                        status : 'offline'
+                    }
+                    var database = firebase.database();
+                    var userCollection = database.ref('/users');
+                    await userCollection.child(result.user.uid).set(user);
+                    verifyEmail(auth.currentUser);
+                }).
+                catch(error => alert("there is some error"));
+            }
+            function verifyEmail(currentUser){
+                currentUser.sendEmailVerification().then(() =>{
+                    alert("email sent successfully");
+                }).catch(error => {
+                    alert("email verification error");
+                })
+            }
+            function signInWithGoogle(){
+                var googleProvider = new firebase.auth.GoogleAuthProvider();
+                auth.signInWithPopup(googleProvider).
+                then(async (result) => {
+                    var user = {
+                        avatar : result.user.photoURL,
+                        email : result.user.email,
+                        username : result.user.email.substring(0,result.user.email.lastIndexOf('@')),
+                        display_name : result.user.displayName,
+                        status : 'online'
+                    }
+                    var database = firebase.database();
+                    var userCollection = database.ref('/users');
+                    await userCollection.child(result.user.uid).set(user);
+                    sessionStorage.setItem("authUser",result.user.uid);
+                    if(result.user.emailVerified){
+                        window.location.href = "index.html";
+                    }
+                }).
+                catch(error => console.log(error));
+            }
+            function signIn(signInEmail,signInPassword){
+                auth.signInWithEmailAndPassword(signInEmail,signInPassword).
+                then(async (result) => {
+                    if(auth.currentUser.emailVerified){
+                        var database = firebase.database();
+                        var userCollection = database.ref('/users');
+                        await userCollection.child(result.user.uid).update({
+                            status : 'online'
+                        })
+                        sessionStorage.setItem("authUser",result.user.uid);
+                        window.location.href = "index.html";
+                    }
+                }).
+                catch(error => console.log("sign in error"));
+            }
+            $(".signUp").hide();
+            $(".changeToSignUp").on("click",function(){
+                $(".signIn").hide();
+                $(".signUp").show();
+            })
+            $(".changeToSignIn").on("click",function(){
+                $(".signUp").hide();
+                $(".signIn").show();
+            })
+            $(".signin").on("click",function(event){
+                event.preventDefault();
+                var signInEmail = $(".signInEmail").val();
+                var signInPassword = $(".signInPassword").val();
+                signIn(signInEmail,signInPassword);
+            })
+            $(".signup").on("click",function(event){
+                event.preventDefault();
+                var signUpEmail = $(".signUpEmail").val();
+                var signUpName = $(".signUpName").val();
+                var signUPPassword = $(".signUPPassword").val();
+                signUp(signUpEmail,signUPPassword,signUpName);
+            })
+            $(".fa-google").on("click",function(event){
+                signInWithGoogle();
+            })
+        })
+    </script>
+</body>
+</html>
